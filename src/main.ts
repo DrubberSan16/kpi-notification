@@ -33,22 +33,10 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
 
-  // Swagger expuesto siempre en /docs y /docs-json
-  SwaggerModule.setup('docs', app, document);
-  app.getHttpAdapter().get('/docs-json', (_req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.send(document);
+  SwaggerModule.setup('docs', app, document, {
+    useGlobalPrefix: Boolean(globalPrefix),
+    jsonDocumentUrl: 'docs-json',
   });
-
-  // Alias con prefix para mantener compatibilidad si BASE_PATH está configurado
-  if (globalPrefix) {
-    app.getHttpAdapter().get(`/${globalPrefix}/docs`, (_req, res) => {
-      res.redirect('/docs');
-    });
-    app.getHttpAdapter().get(`/${globalPrefix}/docs-json`, (_req, res) => {
-      res.redirect('/docs-json');
-    });
-  }
   app.useGlobalInterceptors(new TimezoneInterceptor());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   await app.listen(port, '127.0.0.1');
