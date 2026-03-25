@@ -6,6 +6,7 @@ import { NotificationChannelModule } from './modules/notification-channel/notifi
 import { NotificationLogModule } from './modules/notification-log/notification-log.module';
 import { NotificationOutboxModule } from './modules/notification-outbox/notification-outbox.module';
 import { NotificationTemplateModule } from './modules/notification-template/notification-template.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { NotificationTemplateModule } from './modules/notification-template/noti
     NotificationLogModule,
     NotificationOutboxModule,
     NotificationTemplateModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}
