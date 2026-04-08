@@ -44,6 +44,17 @@ export class NotificationsService {
     };
   }
 
+  private parseRecipientsFilter(input?: string) {
+    return [
+      ...new Set(
+        String(input || '')
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
+      ),
+    ];
+  }
+
   async createInAppNotification(input: InAppNotificationInput) {
     const recipients = (input.recipients ?? []).filter(Boolean);
     const row = await this.outboxRepo.save(
@@ -103,12 +114,12 @@ export class NotificationsService {
     }
 
     const rows = await qb.getMany();
-    const recipient = String(filters.recipient || '').trim();
+    const recipientTokens = this.parseRecipientsFilter(filters.recipient);
     const filtered = rows.filter((row) => {
       const recipients = Array.isArray(row.to_recipients) ? row.to_recipients.map(String) : [];
-      if (!recipient) return true;
+      if (!recipientTokens.length) return true;
       if (!recipients.length) return true;
-      return recipients.includes(recipient);
+      return recipientTokens.some((token) => recipients.includes(token));
     });
 
     return filtered.slice(0, take).map((row) => this.mapNotification(row));
@@ -131,12 +142,12 @@ export class NotificationsService {
       take: 200,
     });
 
-    const normalizedRecipient = String(recipient || '').trim();
+    const recipientTokens = this.parseRecipientsFilter(recipient);
     const selected = rows.filter((row) => {
       const recipients = Array.isArray(row.to_recipients) ? row.to_recipients.map(String) : [];
-      if (!normalizedRecipient) return true;
+      if (!recipientTokens.length) return true;
       if (!recipients.length) return true;
-      return recipients.includes(normalizedRecipient);
+      return recipientTokens.some((token) => recipients.includes(token));
     });
 
     for (const row of selected) {

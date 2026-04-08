@@ -23,9 +23,14 @@ export class NotificationsGateway
   @WebSocketServer() server: Server;
 
   handleConnection(client: Socket) {
-    const recipient = String(client.handshake.query?.recipient || '').trim();
-    if (recipient) {
-      client.join(`recipient:${recipient}`);
+    const recipients = String(client.handshake.query?.recipient || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (recipients.length) {
+      for (const recipient of recipients) {
+        client.join(`recipient:${recipient}`);
+      }
     }
     client.join('broadcast');
   }
