@@ -15,6 +15,9 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         const sslEnabled = String(config.get('DB_SSL') || 'false') === 'true';
+        const appTimeZone =
+          String(config.get('APP_TIMEZONE') || '').trim() ||
+          'America/Guayaquil';
         return {
           type: 'postgres',
           host: config.get('DB_HOST'),
@@ -28,7 +31,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
           synchronize: false,
           logging: false,
           ssl: sslEnabled ? { rejectUnauthorized: false } : false,
-          extra: { options: '-c timezone=UTC' },
+          extra: { options: `-c timezone=${appTimeZone}` },
         };
       },
     }),
