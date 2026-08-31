@@ -1,6 +1,7 @@
 import {
   ConnectedSocket,
   MessageBody,
+  OnGatewayInit,
   OnGatewayConnection,
   OnGatewayDisconnect,
   SubscribeMessage,
@@ -13,19 +14,45 @@ import type { Server, Socket } from 'socket.io';
   namespace: '/notifications',
   path: '/kpi_notification/socket.io',
   cors: {
-    origin: true,
+    origin: [
+      'https://justicecompany-ec.com',
+      'https://www.justicecompany-ec.com',
+      'http://localhost:5173',
+    ],
     credentials: true,
   },
 })
 export class NotificationsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer() server: Server;
 
+  afterInit(server: Server) {
+    server.use(async (client: Socket, next) => {
+      try {
+        const token = String(client.handshake.auth?.token || '').trim();
+        if (!token) throw new Error('missing-token');
+        const response = await fetch(
+          'http://127.0.0.1:3015/kpi_security/users/session/validate',
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(5000),
+          },
+        );
+        if (!response.ok) throw new Error(`invalid-token-${response.status}`);
+        const payload = (await response.json()) as { user?: Record<string, unknown> };
+        client.data.authUser = payload.user ?? {};
+        next();
+      } catch {
+        next(new Error('unauthorized'));
+      }
+    });
+  }
+
   handleConnection(client: Socket) {
-    const recipients = String(client.handshake.query?.recipient || '')
-      .split(',')
-      .map((item) => item.trim())
+    const user = (client.data.authUser ?? {}) as Record<string, unknown>;
+    const recipients = [user.userId, user.nameUser, user.email]
+      .map((item) => String(item || '').trim())
       .filter(Boolean);
     if (recipients.length) {
       for (const recipient of recipients) {

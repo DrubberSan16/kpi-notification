@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Headers,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 
@@ -7,10 +17,28 @@ import { NotificationsService } from './notifications.service';
 export class NotificationsController {
   constructor(private readonly service: NotificationsService) {}
 
+  private authenticatedRecipients(
+    userId?: string,
+    userName?: string,
+    userEmail?: string,
+  ) {
+    const recipients = [...new Set([userId, userName, userEmail]
+      .map((item) => String(item || '').trim())
+      .filter(Boolean))];
+    if (!recipients.length) throw new ForbiddenException('Identidad autenticada requerida');
+    return recipients.join(',');
+  }
+
   @Post('in-app')
   @ApiOperation({ summary: 'Crear notificación in-app y emitirla en tiempo real' })
   @ApiBody({ schema: { type: 'object', additionalProperties: true } })
-  createInApp(@Body() payload: Record<string, unknown>) {
+  createInApp(
+    @Body() payload: Record<string, unknown>,
+    @Headers('x-internal-authenticated') internalAuthenticated?: string,
+  ) {
+    if (String(internalAuthenticated || '').toLowerCase() !== 'true') {
+      throw new ForbiddenException('Solo servicios internos pueden crear notificaciones');
+    }
     return this.service.createInAppNotification({
       title: String(payload.title || 'Notificación'),
       body: String(payload.body || ''),
@@ -33,26 +61,42 @@ export class NotificationsController {
   listInApp(
     @Query('status') status?: string,
     @Query('limit') limit?: string,
-    @Query('recipient') recipient?: string,
+    @Headers('x-user-id') userId?: string,
+    @Headers('x-user-name') userName?: string,
+    @Headers('x-user-email') userEmail?: string,
   ) {
     return this.service.listInAppNotifications({
       status,
       limit: limit ? Number(limit) : undefined,
-      recipient,
+      recipient: this.authenticatedRecipients(userId, userName, userEmail),
     });
   }
 
   @Patch('in-app/:id/read')
   @ApiOperation({ summary: 'Marcar una notificación in-app como leída' })
   @ApiParam({ name: 'id', type: String })
-  markAsRead(@Param('id') id: string) {
-    return this.service.markAsRead(id);
+  markAsRead(
+    @Param('id') id: string,
+    @Headers('x-user-id') userId?: string,
+    @Headers('x-user-name') userName?: string,
+    @Headers('x-user-email') userEmail?: string,
+  ) {
+    return this.service.markAsRead(
+      id,
+      this.authenticatedRecipients(userId, userName, userEmail),
+    );
   }
 
   @Patch('in-app/read-all')
   @ApiOperation({ summary: 'Marcar todas las notificaciones in-app como leídas' })
   @ApiQuery({ name: 'recipient', required: false, type: String })
-  markAllAsRead(@Query('recipient') recipient?: string) {
-    return this.service.markAllAsRead(recipient);
+  markAllAsRead(
+    @Headers('x-user-id') userId?: string,
+    @Headers('x-user-name') userName?: string,
+    @Headers('x-user-email') userEmail?: string,
+  ) {
+    return this.service.markAllAsRead(
+      this.authenticatedRecipients(userId, userName, userEmail),
+    );
   }
 }

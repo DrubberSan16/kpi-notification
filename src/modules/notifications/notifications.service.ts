@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotificationLog } from '../entities/notification-log.entity';
@@ -53,6 +53,14 @@ export class NotificationsService {
           .filter(Boolean),
       ),
     ];
+  }
+
+  private isVisibleToRecipients(row: NotificationOutbox, recipientTokens: string[]) {
+    const recipients = Array.isArray(row.to_recipients)
+      ? row.to_recipients.map(String)
+      : [];
+    if (!recipients.length) return true;
+    return recipientTokens.some((token) => recipients.includes(token));
   }
 
   async createInAppNotification(input: InAppNotificationInput) {
@@ -116,20 +124,22 @@ export class NotificationsService {
     const rows = await qb.getMany();
     const recipientTokens = this.parseRecipientsFilter(filters.recipient);
     const filtered = rows.filter((row) => {
-      const recipients = Array.isArray(row.to_recipients) ? row.to_recipients.map(String) : [];
-      if (!recipientTokens.length) return true;
-      if (!recipients.length) return true;
-      return recipientTokens.some((token) => recipients.includes(token));
+      if (!recipientTokens.length) return false;
+      return this.isVisibleToRecipients(row, recipientTokens);
     });
 
     return filtered.slice(0, take).map((row) => this.mapNotification(row));
   }
 
-  async markAsRead(id: string) {
+  async markAsRead(id: string, recipient?: string) {
     const row = await this.outboxRepo.findOne({
       where: { id, is_deleted: false, channel_code: 'IN_APP' },
     });
     if (!row) return { id, updated: false };
+    const recipientTokens = this.parseRecipientsFilter(recipient);
+    if (!recipientTokens.length || !this.isVisibleToRecipients(row, recipientTokens)) {
+      throw new ForbiddenException('La notificación no pertenece al usuario autenticado');
+    }
     row.status = 'READ';
     await this.outboxRepo.save(row);
     return { id, updated: true };
@@ -144,10 +154,8 @@ export class NotificationsService {
 
     const recipientTokens = this.parseRecipientsFilter(recipient);
     const selected = rows.filter((row) => {
-      const recipients = Array.isArray(row.to_recipients) ? row.to_recipients.map(String) : [];
-      if (!recipientTokens.length) return true;
-      if (!recipients.length) return true;
-      return recipientTokens.some((token) => recipients.includes(token));
+      if (!recipientTokens.length) return false;
+      return this.isVisibleToRecipients(row, recipientTokens);
     });
 
     for (const row of selected) {
