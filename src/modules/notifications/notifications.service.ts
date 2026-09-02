@@ -104,6 +104,21 @@ export class NotificationsService {
     return mapped;
   }
 
+  /**
+   * Publica una senal de cambio de datos. No toca outbox ni log: es efimera y
+   * su unico proposito es que las pantallas abiertas se refresquen.
+   */
+  broadcastDataChanged(payload: Record<string, unknown>) {
+    const evento = {
+      recurso: String(payload.recurso || 'desconocido'),
+      accion: String(payload.accion || 'changed'),
+      id: payload.id ?? null,
+      ts: new Date().toISOString(),
+    };
+    this.gateway.emitDataChanged(evento);
+    return evento;
+  }
+
   async listInAppNotifications(filters: {
     status?: string;
     limit?: number;

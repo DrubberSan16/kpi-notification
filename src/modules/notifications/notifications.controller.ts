@@ -53,6 +53,16 @@ export class NotificationsController {
     });
   }
 
+  @Post('data-changed')
+  @ApiOperation({
+    summary:
+      'Emite una senal efimera de cambio de datos para que las pantallas abiertas se refresquen',
+  })
+  @ApiBody({ schema: { type: 'object', additionalProperties: true } })
+  broadcastDataChanged(@Body() payload: Record<string, unknown>) {
+    return this.service.broadcastDataChanged(payload ?? {});
+  }
+
   @Get('in-app')
   @ApiOperation({ summary: 'Listar notificaciones in-app' })
   @ApiQuery({ name: 'status', required: false, type: String })

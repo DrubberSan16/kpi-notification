@@ -80,6 +80,18 @@ export class NotificationsGateway
     this.server.to('broadcast').emit('notification:new', payload);
   }
 
+  /**
+   * Senal transitoria de cambio de datos, para que las pantallas abiertas se
+   * refresquen solas.
+   *
+   * Va por un evento distinto de `notification:new` a proposito: no es una
+   * notificacion del usuario, no se persiste y no debe aparecer en la campana.
+   * Solo la escuchan las vistas que quieran recargarse.
+   */
+  emitDataChanged(payload: Record<string, unknown>) {
+    this.server.to('broadcast').emit('data:changed', payload);
+  }
+
   @SubscribeMessage('notification:ping')
   handlePing(
     @ConnectedSocket() client: Socket,
