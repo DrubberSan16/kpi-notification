@@ -59,7 +59,16 @@ export class NotificationsController {
       'Emite una senal efimera de cambio de datos para que las pantallas abiertas se refresquen',
   })
   @ApiBody({ schema: { type: 'object', additionalProperties: true } })
-  broadcastDataChanged(@Body() payload: Record<string, unknown>) {
+  broadcastDataChanged(
+    @Body() payload: Record<string, unknown>,
+    @Headers('x-internal-authenticated') internalAuthenticated?: string,
+  ) {
+    // Mismo control que crear notificaciones: la cabecera la inyecta el gateway
+    // tras validar la identidad, asi que solo los servicios internos emiten
+    // senales de refresco.
+    if (String(internalAuthenticated || '').toLowerCase() !== 'true') {
+      throw new ForbiddenException('Solo servicios internos pueden emitir senales');
+    }
     return this.service.broadcastDataChanged(payload ?? {});
   }
 
